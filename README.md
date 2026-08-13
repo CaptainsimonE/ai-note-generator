@@ -2,7 +2,7 @@
 
 Generate note pages from unresolved `[[wikilinks]]` using AI — right inside Obsidian.
 
-> 中文版说明在下方 / Full Chinese docs below.
+> English docs below · 中文版说明在下方.
 
 ---
 
@@ -39,7 +39,7 @@ The plugin can **learn your vault structure** (PARA folders, topic folders, tag 
 Generated notes get proper YAML frontmatter:
 
 - `tags`: inherited from the source note + profile rules + your default tags
-- `type`: `概念` (concept) by default
+- `type`: `概念` (concept, localized) by default
 - `created`: today's date
 - Existing frontmatter in AI output is merged, duplicate tags are removed
 
@@ -77,7 +77,7 @@ Right-click a link and enhance an existing note with a related-sentence that con
 | `outputDir` | Default folder for new notes (empty = auto classification) | — |
 | `contextChars` | How much context around the link is sent to the AI (characters) | `400` |
 | `inheritTags` | Inherit tags from the source note | On |
-| `defaultTags` | Extra tags added to every generated note | `知识库` |
+| `defaultTags` | Extra tags added to every generated note | `知识库` (Chinese "knowledge base") |
 | `generateOnClick` | Auto-generate when clicking an unresolved link | On |
 | `autoClassify` | Route new notes using the learned vault profile | On |
 
@@ -100,18 +100,20 @@ Copy `data.example.json` from the repo into `.obsidian/plugins/ai-note-generator
 }
 ```
 
+> Note: `defaultTags` and generated-note `type` are Chinese by default (the plugin targets Chinese-language knowledge vaults). Change them to anything you like.
+
 ---
 
 ## Usage examples
 
 **Scenario 1 — Reading note with missing terms**
-You write `《刺客信条》发生在[[9世纪的巴格达]]` and the link is unresolved. Click it → the plugin creates a full wiki entry for "9世纪的巴格达" and saves it to the geography/history folder per your vault profile.
+You write `The game takes place in [[9th-century Baghdad]]` and the link is unresolved. Click it → the plugin creates a full wiki entry for "9th-century Baghdad" and saves it to the geography/history folder per your vault profile.
 
 **Scenario 2 — MOC with many missing entries**
-A "基督教 MOC" page links to 50 unwritten concepts. Run the **batch generate** command → 50 notes are generated in sequence into their classified folders.
+A "Christianity MOC" page links to 50 unwritten concepts. Run the **batch generate** command → 50 notes are generated in sequence into their classified folders.
 
 **Scenario 3 — Empty-file rescue**
-You clicked an unresolved link earlier and Obsidian created an empty `巴格达.md`. Open any note, trigger the plugin — it detects the 0-byte file and offers to generate content into it.
+You clicked an unresolved link earlier and Obsidian created an empty `Baghdad.md`. Trigger the plugin on any note — it detects the 0-byte file and offers to generate content into it.
 
 ---
 
@@ -119,8 +121,8 @@ You clicked an unresolved link earlier and Obsidian created an empty `巴格达.
 
 | Command | Action |
 |---------|--------|
-| 为选中的链接生成笔记 (Generate note for selected link) | Generates a note for the selected `[[link]]` in the editor |
-| 批量生成未创建的链接 (Generate all unresolved links) | Batch-generates notes for every unresolved link in the current note |
+| Generate note for selected link (为选中的链接生成笔记) | Generates a note for the selected `[[link]]` in the editor |
+| Generate all unresolved links (批量生成未创建的链接) | Batch-generates notes for every unresolved link in the current note |
 
 ---
 
