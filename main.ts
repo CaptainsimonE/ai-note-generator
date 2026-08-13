@@ -1,4 +1,11 @@
-import { App, Menu, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, normalizePath } from "obsidian";
+import { App, Menu, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, normalizePath, requestUrl } from "obsidian";
+
+/** OpenAI 兼容 chat/completions 响应结构 */
+interface ChatCompletionResponse {
+  choices?: Array<{
+    message?: { content?: string };
+  }>;
+}
 
 interface AINoteGenSettings {
   apiBase: string;
@@ -96,21 +103,19 @@ export default class AINoteGeneratorPlugin extends Plugin {
 
     if (this.settings.generateOnClick) {
       // 第一道：document 捕获阶段拦截（早于 Obsidian 的冒泡处理，阻止创建空文件）
-      this.registerDomEvent(document as any, "click", (evt: MouseEvent) => {
+      this.registerDomEvent(document, "click", (evt: MouseEvent) => {
         this.interceptAtCapture(evt);
       }, true);
-      // 第二道：workspace click 事件中 preventDefault（官方推荐，兼容部分场景）
-      this.registerEvent(
-        (this.app.workspace as any).on("click", (evt: MouseEvent) => {
-          this.handleLinkClick(evt);
-        })
-      );
+      // 第二道：document 冒泡阶段拦截（官方推荐，兼容部分场景）
+      this.registerDomEvent(document, "click", (evt: MouseEvent) => {
+        this.handleLinkClick(evt);
+      });
       // 第三道（兜底）：即使前两道都失效，Obsidian 创建了 0 字节空文件，
       // 也会通过 vault.create 发现并弹窗 —— 保证用户一定能看到弹窗。
       this.registerEvent(
         this.app.vault.on("create", (file) => {
           if (file instanceof TFile && file.extension === "md" && file.stat.size === 0) {
-            setTimeout(() => new EmptyFileModal(this, file).open(), 300);
+            window.setTimeout(() => new EmptyFileModal(this, file).open(), 300);
           }
         })
       );
@@ -118,7 +123,7 @@ export default class AINoteGeneratorPlugin extends Plugin {
 
     // 右键链接菜单：已创建链接 → 补充关联描述；未创建链接 → 生成词条
     if (this.settings.enhanceOnContextMenu) {
-      this.registerDomEvent(document as any, "contextmenu", (evt: MouseEvent) => {
+      this.registerDomEvent(document, "contextmenu", (evt: MouseEvent) => {
         this.handleContextMenu(evt);
       }, true);
     }
@@ -158,7 +163,7 @@ export default class AINoteGeneratorPlugin extends Plugin {
   private interceptAtCapture(evt: MouseEvent) {
     if (!this.settings.generateOnClick) return;
     const t = evt.target as HTMLElement;
-    const linkEl = t.closest("a.internal-link") as HTMLAnchorElement | null;
+    const linkEl = t.closest<HTMLAnchorElement>("a.internal-link");
     if (!linkEl) return;
     const rawHref = linkEl.getAttribute("data-href") || "";
     const name = rawHref.split("#")[0].trim();
@@ -181,7 +186,7 @@ export default class AINoteGeneratorPlugin extends Plugin {
    */
   private handleLinkClick(evt: MouseEvent) {
     const target = evt.target as HTMLElement;
-    const linkEl = target.closest("a.internal-link") as HTMLAnchorElement | null;
+    const linkEl = target.closest<HTMLAnchorElement>("a.internal-link");
     if (!linkEl) return;
     const rawHref = linkEl.getAttribute("data-href") || "";
     const name = rawHref.split("#")[0].trim(); // 去掉可能的 # 锚点
@@ -204,7 +209,7 @@ export default class AINoteGeneratorPlugin extends Plugin {
   /** 右键 internal-link：已创建 → 补充关联；未创建 → 生成词条 */
   private handleContextMenu(evt: MouseEvent) {
     const t = evt.target as HTMLElement;
-    const linkEl = t.closest("a.internal-link") as HTMLAnchorElement | null;
+    const linkEl = t.closest<HTMLAnchorElement>("a.internal-link");
     if (!linkEl) return;
     const rawHref = linkEl.getAttribute("data-href") || "";
     const name = rawHref.split("#")[0].trim();
@@ -229,7 +234,7 @@ export default class AINoteGeneratorPlugin extends Plugin {
           .setTitle("打开笔记")
           .setIcon("open-elsewhere")
           .onClick(() => {
-            this.app.workspace.openLinkText(dest.path, "", false);
+            void this.app.workspace.openLinkText(dest.path, "", false);
           })
       );
     } else {
@@ -422,11 +427,16 @@ export default class AINoteGeneratorPlugin extends Plugin {
       new Notice("分析失败：AI 返回的内容无法解析");
       return false;
     }
+    const rawRules: unknown[] = parsed.rules;
+    const rules: ClassifyRule[] = rawRules.filter(
+      (r): r is ClassifyRule =>
+        typeof r === "object" && r !== null &&
+        typeof (r as ClassifyRule).path === "string" &&
+        Array.isArray((r as ClassifyRule).keywords)
+    );
     this.settings.profile = {
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
-      rules: (parsed.rules as ClassifyRule[]).filter(
-        (r) => r && typeof r.path === "string" && Array.isArray(r.keywords)
-      ),
+      rules,
       defaultPath: typeof parsed.defaultPath === "string" ? parsed.defaultPath : "",
       defaultTags: Array.isArray(parsed.defaultTags) ? parsed.defaultTags.map(String) : [],
       generatedAt: new Date().toISOString().slice(0, 10),
@@ -516,7 +526,8 @@ export default class AINoteGeneratorPlugin extends Plugin {
   private async requestChat(system: string, user: string): Promise<string | null> {
     const base = this.settings.apiBase.replace(/\/+$/, "");
     try {
-      const resp = await fetch(`${base}/chat/completions`, {
+      const resp = await requestUrl({
+        url: `${base}/chat/completions`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -531,13 +542,13 @@ export default class AINoteGeneratorPlugin extends Plugin {
           ],
         }),
       });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => "");
-        console.error("AI API error:", resp.status, errText.slice(0, 300));
+      if (resp.status < 200 || resp.status >= 300) {
+        const errText = (resp.text ?? "").slice(0, 300);
+        console.error("AI API error:", resp.status, errText);
         return null;
       }
-      const data = await resp.json();
-      const content: string | undefined = data?.choices?.[0]?.message?.content;
+      const data = JSON.parse(resp.text) as ChatCompletionResponse;
+      const content: string | undefined = data.choices?.[0]?.message?.content;
       return content ? content.trim() : null;
     } catch (e) {
       console.error("AI API fetch error:", e);
@@ -622,8 +633,16 @@ function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** AI 返回的库画像原始结构（宽松校验用） */
+interface VaultProfileRaw {
+  summary?: unknown;
+  rules?: unknown;
+  defaultPath?: unknown;
+  defaultTags?: unknown;
+}
+
 /** 从 AI 输出中容错提取 JSON */
-function parseJSONLoose(s: string): any {
+function parseJSONLoose(s: string): VaultProfileRaw | null {
   let t = s.replace(/```json/gi, "").replace(/```/g, "");
   const start = t.indexOf("{");
   const end = t.lastIndexOf("}");
@@ -690,7 +709,7 @@ export class EnhanceModal extends Modal {
     this.resultPath = p;
     const btn = this.contentEl.createEl("button", { text: "打开笔记" });
     btn.addEventListener("click", () => {
-      if (this.resultPath) this.app.workspace.openLinkText(this.resultPath, "", false);
+      if (this.resultPath) void this.app.workspace.openLinkText(this.resultPath, "", false);
       this.close();
     });
   }
@@ -734,7 +753,7 @@ export class EmptyFileModal extends Modal {
     const activePath = this.app.workspace.getActiveFile()?.path;
     const source = activePath && activePath !== this.file.path ? activePath : this.file.path;
     // 先删除空文件，避免残留，也让生成流程直接新建到分类目录
-    await this.app.vault.delete(this.file).catch(() => {});
+    await this.app.vault.trash(this.file, true).catch(() => {});
     new GenerateProgressModal(this.plugin, this.file.basename, source).open();
   }
 
@@ -907,7 +926,6 @@ class AINoteGenSettingTab extends PluginSettingTab {
         s
           .setLimits(0, 1, 0.05)
           .setValue(this.plugin.settings.temperature)
-          .setDynamicTooltip()
           .onChange(async (v) => {
             this.plugin.settings.temperature = v;
             await this.plugin.saveSettings();
@@ -978,7 +996,6 @@ class AINoteGenSettingTab extends PluginSettingTab {
         s
           .setLimits(0, 2000, 50)
           .setValue(this.plugin.settings.contextChars)
-          .setDynamicTooltip()
           .onChange(async (v) => {
             this.plugin.settings.contextChars = v;
             await this.plugin.saveSettings();
@@ -1028,5 +1045,5 @@ class AINoteGenSettingTab extends PluginSettingTab {
 }
 
 function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => window.setTimeout(r, ms));
 }
