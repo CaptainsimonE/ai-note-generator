@@ -580,7 +580,8 @@ created: ${today}
     return tags.length ? tags : ["\u77E5\u8BC6\u5E93"];
   }
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data != null ? data : {});
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -678,7 +679,7 @@ var EmptyFileModal = class extends import_obsidian.Modal {
     var _a;
     const activePath = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.path;
     const source = activePath && activePath !== this.file.path ? activePath : this.file.path;
-    await this.app.vault.trash(this.file, true).catch(() => {
+    await this.app.fileManager.trashFile(this.file).catch(() => {
     });
     new GenerateProgressModal(this.plugin, this.file.basename, source).open();
   }
