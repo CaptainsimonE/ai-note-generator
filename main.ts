@@ -621,7 +621,8 @@ export default class AINoteGeneratorPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = (await this.loadData()) as Partial<AINoteGenSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
   }
 
   async saveSettings() {
@@ -648,7 +649,7 @@ function parseJSONLoose(s: string): VaultProfileRaw | null {
   const end = t.lastIndexOf("}");
   if (start < 0 || end < 0) return null;
   try {
-    return JSON.parse(t.slice(start, end + 1));
+    return JSON.parse(t.slice(start, end + 1)) as VaultProfileRaw;
   } catch {
     return null;
   }
@@ -753,7 +754,7 @@ export class EmptyFileModal extends Modal {
     const activePath = this.app.workspace.getActiveFile()?.path;
     const source = activePath && activePath !== this.file.path ? activePath : this.file.path;
     // 先删除空文件，避免残留，也让生成流程直接新建到分类目录
-    await this.app.vault.trash(this.file, true).catch(() => {});
+    await this.app.fileManager.trashFile(this.file).catch(() => {});
     new GenerateProgressModal(this.plugin, this.file.basename, source).open();
   }
 
