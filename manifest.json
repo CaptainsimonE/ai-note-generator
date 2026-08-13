@@ -1,0 +1,9 @@
+{
+  "id": "ai-note-generator",
+  "name": "AI 笔记生成器（点击链接自动创建）",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "点击未创建的 [[双链]] 时，调用 AI（OpenAI 兼容接口，支持 DeepSeek/通义等）自动生成该词条的笔记页面并写入指定目录；支持批量生成当前笔记的所有未创建链接。",
+  "author": "CaptainsimonE",
+  "isDesktopOnly": false
+}
