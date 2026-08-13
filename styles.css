@@ -1,0 +1,22 @@
+.ai-note-gen-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ai-note-gen-btns button {
+  padding: 4px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ai-note-gen-status {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
