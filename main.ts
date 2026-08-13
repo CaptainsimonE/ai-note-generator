@@ -862,7 +862,7 @@ class AINoteGenSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h2", { text: "AI 笔记生成器" });
+    new Setting(containerEl).setName("AI 笔记生成器").setHeading();
     containerEl.createEl("p", {
       text: "点击未创建的 [[双链]] 时自动调用 AI 生成笔记。支持 OpenAI 兼容接口（DeepSeek / 通义 / Moonshot / OpenAI）。",
     });
@@ -914,7 +914,7 @@ class AINoteGenSettingTab extends PluginSettingTab {
           })
       );
 
-    containerEl.createEl("h3", { text: "自动分类（推荐）" });
+    new Setting(containerEl).setName("自动分类（推荐）").setHeading();
     containerEl.createEl("p", {
       text: "让 AI 读取并理解本地库结构（目录树 + 文件示例），学习出\"词条关键词 → 目录 + 标签\"的规则；生成笔记时自动归档并打标签，无需手填。",
     });
@@ -954,7 +954,7 @@ class AINoteGenSettingTab extends PluginSettingTab {
       if (p.rules.length > 12) info.createEl("p", { text: `…其余 ${p.rules.length - 12} 条略` });
     }
 
-    containerEl.createEl("h3", { text: "手动设置" });
+    new Setting(containerEl).setName("手动设置").setHeading();
     containerEl.createEl("p", {
       text: this.plugin.settings.autoClassify
         ? "✅ 全自动模式已开启：目录与标签由 AI 自动决定，无需手动设置（以下设置不生效）。若新增了主题文件夹，请点上方「重新学习」更新规则。"
