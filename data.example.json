@@ -1,0 +1,21 @@
+{
+  "apiBase": "https://api.deepseek.com",
+  "apiKey": "sk-你的密钥填这里",
+  "model": "deepseek-chat",
+  "temperature": 0.3,
+  "outputDir": "",
+  "contextChars": 400,
+  "inheritTags": true,
+  "defaultTags": "",
+  "generateOnClick": true,
+  "autoClassify": true,
+  "profile": {
+    "summary": "这是你的知识库的简要描述，用于指导 AI 分类",
+    "rules": [
+      {
+        "keywords": ["示例关键词"],
+        "target": "示例目录"
+      }
+    ]
+  }
+}
