@@ -91,15 +91,13 @@ var AINoteGeneratorPlugin = class extends import_obsidian.Plugin {
       this.registerDomEvent(document, "click", (evt) => {
         this.interceptAtCapture(evt);
       }, true);
-      this.registerEvent(
-        this.app.workspace.on("click", (evt) => {
-          this.handleLinkClick(evt);
-        })
-      );
+      this.registerDomEvent(document, "click", (evt) => {
+        this.handleLinkClick(evt);
+      });
       this.registerEvent(
         this.app.vault.on("create", (file) => {
           if (file instanceof import_obsidian.TFile && file.extension === "md" && file.stat.size === 0) {
-            setTimeout(() => new EmptyFileModal(this, file).open(), 300);
+            window.setTimeout(() => new EmptyFileModal(this, file).open(), 300);
           }
         })
       );
@@ -213,7 +211,7 @@ var AINoteGeneratorPlugin = class extends import_obsidian.Plugin {
       );
       menu.addItem(
         (item) => item.setTitle("\u6253\u5F00\u7B14\u8BB0").setIcon("open-elsewhere").onClick(() => {
-          this.app.workspace.openLinkText(dest.path, "", false);
+          void this.app.workspace.openLinkText(dest.path, "", false);
         })
       );
     } else {
@@ -396,11 +394,13 @@ ${tree.join("\n")}
       new import_obsidian.Notice("\u5206\u6790\u5931\u8D25\uFF1AAI \u8FD4\u56DE\u7684\u5185\u5BB9\u65E0\u6CD5\u89E3\u6790");
       return false;
     }
+    const rawRules = parsed.rules;
+    const rules = rawRules.filter(
+      (r) => typeof r === "object" && r !== null && typeof r.path === "string" && Array.isArray(r.keywords)
+    );
     this.settings.profile = {
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
-      rules: parsed.rules.filter(
-        (r) => r && typeof r.path === "string" && Array.isArray(r.keywords)
-      ),
+      rules,
       defaultPath: typeof parsed.defaultPath === "string" ? parsed.defaultPath : "",
       defaultTags: Array.isArray(parsed.defaultTags) ? parsed.defaultTags.map(String) : [],
       generatedAt: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)
@@ -486,10 +486,11 @@ ${context}
     return this.requestChat(SYS_PROMPT, userMsg);
   }
   async requestChat(system, user) {
-    var _a, _b, _c;
+    var _a, _b, _c, _d;
     const base = this.settings.apiBase.replace(/\/+$/, "");
     try {
-      const resp = await fetch(`${base}/chat/completions`, {
+      const resp = await (0, import_obsidian.requestUrl)({
+        url: `${base}/chat/completions`,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -504,13 +505,13 @@ ${context}
           ]
         })
       });
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => "");
-        console.error("AI API error:", resp.status, errText.slice(0, 300));
+      if (resp.status < 200 || resp.status >= 300) {
+        const errText = ((_a = resp.text) != null ? _a : "").slice(0, 300);
+        console.error("AI API error:", resp.status, errText);
         return null;
       }
-      const data = await resp.json();
-      const content = (_c = (_b = (_a = data == null ? void 0 : data.choices) == null ? void 0 : _a[0]) == null ? void 0 : _b.message) == null ? void 0 : _c.content;
+      const data = JSON.parse(resp.text);
+      const content = (_d = (_c = (_b = data.choices) == null ? void 0 : _b[0]) == null ? void 0 : _c.message) == null ? void 0 : _d.content;
       return content ? content.trim() : null;
     } catch (e) {
       console.error("AI API fetch error:", e);
@@ -643,7 +644,7 @@ var EnhanceModal = class extends import_obsidian.Modal {
     const btn = this.contentEl.createEl("button", { text: "\u6253\u5F00\u7B14\u8BB0" });
     btn.addEventListener("click", () => {
       if (this.resultPath)
-        this.app.workspace.openLinkText(this.resultPath, "", false);
+        void this.app.workspace.openLinkText(this.resultPath, "", false);
       this.close();
     });
   }
@@ -677,7 +678,7 @@ var EmptyFileModal = class extends import_obsidian.Modal {
     var _a;
     const activePath = (_a = this.app.workspace.getActiveFile()) == null ? void 0 : _a.path;
     const source = activePath && activePath !== this.file.path ? activePath : this.file.path;
-    await this.app.vault.delete(this.file).catch(() => {
+    await this.app.vault.trash(this.file, true).catch(() => {
     });
     new GenerateProgressModal(this.plugin, this.file.basename, source).open();
   }
@@ -805,7 +806,7 @@ var AINoteGenSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     new import_obsidian.Setting(containerEl).setName("\u6E29\u5EA6").setDesc("\u8D8A\u4F4E\u8D8A\u4E25\u8C28\uFF08\u5EFA\u8BAE 0.2~0.5\uFF09").addSlider(
-      (s) => s.setLimits(0, 1, 0.05).setValue(this.plugin.settings.temperature).setDynamicTooltip().onChange(async (v) => {
+      (s) => s.setLimits(0, 1, 0.05).setValue(this.plugin.settings.temperature).onChange(async (v) => {
         this.plugin.settings.temperature = v;
         await this.plugin.saveSettings();
       })
@@ -852,7 +853,7 @@ var AINoteGenSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     new import_obsidian.Setting(containerEl).setName("\u4E0A\u4E0B\u6587\u957F\u5EA6").setDesc("\u4ECE\u6765\u6E90\u7B14\u8BB0\u94FE\u63A5\u524D\u540E\u63D0\u53D6\u7684\u5B57\u7B26\u6570\uFF0C\u4F9B AI \u53C2\u8003\uFF080 = \u4E0D\u63D0\u53D6\uFF09").addSlider(
-      (s) => s.setLimits(0, 2e3, 50).setValue(this.plugin.settings.contextChars).setDynamicTooltip().onChange(async (v) => {
+      (s) => s.setLimits(0, 2e3, 50).setValue(this.plugin.settings.contextChars).onChange(async (v) => {
         this.plugin.settings.contextChars = v;
         await this.plugin.saveSettings();
       })
@@ -884,5 +885,5 @@ var AINoteGenSettingTab = class extends import_obsidian.PluginSettingTab {
   }
 };
 function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((r) => window.setTimeout(r, ms));
 }
