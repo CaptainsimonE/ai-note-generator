@@ -3,7 +3,7 @@
   "name": "AI 笔记生成器",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "点击未创建的双链时，调用 AI 自动生成该词条的笔记页面，支持批量生成与自动分类。",
+  "description": "Generate note pages from unresolved wikilinks using AI, with batch generation and auto classification.",
   "author": "CaptainsimonE",
   "authorUrl": "https://github.com/CaptainsimonE",
   "isDesktopOnly": false
